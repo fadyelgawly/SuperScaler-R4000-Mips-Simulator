@@ -6,8 +6,21 @@
 
 using namespace std;
 
-uint32_t regs[15],s1data, s2data,aluresult, memory[32],opcode,RS,RT,RD,func,imm, clk;
-int zeroflag=0,datamemresult,alucontrol;
+uint32_t    regs[15],
+            s1data,            //Not needed anymore
+            s2data,        //Not needed anymore
+            aluresult,             //Not needed anymore
+            memory[32],
+            opcode,       //Not needed anymore
+            RS,       //Not needed anymore
+            RT,       //Not needed anymore
+            RD,        //Not needed anymore
+            func,       //Not needed anymore
+            imm,        //Not needed anymore
+            clk;
+int         zeroflag=0, //TO BE ADDED TO INSTWORD STRUCT
+            datamemresult,  //SAME
+            alucontrol;     //SAME
 bool regwrite,regdst,ALUSrc,Branch,memorywrite,memtoreg,jump, Branchequal;
 
 
@@ -80,7 +93,7 @@ void parse(instWord &W) {
             W.instMachineCode |= W.opcode;
         }
         else if (temp == "addi") {     //I format
-            W.opcode = 19;
+            W.opcode = 0x8;
             W.funct3 = 0;
             W.instText.erase(0, W.instText.find("x"));
             W.rd = stoi(W.instText.substr(1, W.instText.find(",")));
@@ -447,7 +460,7 @@ int fowardingunit(uint32_t rs_exec, uint32_t rd_df, bool reg_we_DF, uint32_t rd_
 void nextclk(instWord W[] ,int i){
     /*
     decoder(W[clk] );
-    RegisterFile( ); W[clk-1]
+    RegisterFile( ); W[clk-1]       //Zeyad
     ALU(); W[clk-2]
     DataMemory() W[clk-3] */
     clk ++;
@@ -462,14 +475,14 @@ int main(int argc, char *argv[])
     ifstream inFile;
     instWord W;
     queue <unsigned> ROM;
-    inFile.open("div.s"); //FILE PATH GOES HERE:: HANA
+    inFile.open("div.s"); //FILE PATH GOES HERE:: HANA Please check this.
     if (inFile.is_open())
     {
         while (!inFile.eof()) {
             getline(inFile, W.instText);
             cout << W.instText << endl;
             parse(W);
-if (W.instMachineCode != 0)
+            if (W.instMachineCode != 0)
                 ROM.push(W.instMachineCode);            //Filling ROM
         }
         inFile.close();
