@@ -1,13 +1,3 @@
-/*
- Marla, Modify Components to accept instWord
- Fady, Fix Parser, Design GUI
- Zeyad,Fady, data path
- 
- Zeyad, handle clk -1, clk -2, clk -x at clk 0
- 
- 
- */
-
 #include <iostream>
 #include <string>
 #include <vector>
