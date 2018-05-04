@@ -2,12 +2,14 @@
 #include <string>
 #include <vector>
 #include <queue>
-
+#include <fstream>
 using namespace std;
 
 uint32_t    regs[15],
 memory[32],
 clk;
+int pc;
+
 //bool regwrite, regdst, ALUSrc, Branch, memorywrite, memtoreg, jump, Branchequal;
 
 struct BranchPredictor
@@ -20,12 +22,12 @@ struct BranchPredictor
 struct instWord
 {
 	string instText;
-	unsigned int instMachineCode;
-	signed int rd, rs1, rs2, shamt, funct, opcode, alucontrol;
-	signed int I_imm, S_imm, B_imm, U_imm, J_imm;
-	unsigned pc;
-	int zeroflag, alures, datamemoryresult;
-	uint32_t s1data, s2data;
+	unsigned int instMachineCode = 0;
+	signed int rd = 0, rs1 = 0, rs2 = 0, shamt = 0, funct = 0, opcode = 0, alucontrol = 0;
+	signed int I_imm = 0, S_imm = 0, B_imm = 0, U_imm = 0, J_imm = 0;
+	unsigned pc = 0;
+	int zeroflag = 0, alures = 0, datamemoryresult = 0;
+	uint32_t s1data = 0, s2data = 0;
 	vector <BranchPredictor> branch;
 	bool regwrite = 0,
     ALUSrc = 0,
@@ -63,136 +65,6 @@ void parseb(instWord &W) {
        
     }
 }
-void parse(instWord &W) {
-
-	string temp = W.instText.substr(0, W.instText.find("\t"));
-
-
-	if (temp != "main:\r") {
-		if (temp == "add") {            //R Type
-			W.opcode = 51;
-			W.shamt = 0;
-			W.funct = 0;
-			W.instText.erase(0, 4);
-			W.rd = stoi(W.instText.substr(1, W.instText.find(",") - 1));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs1 = stoi(W.instText.substr(0, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs2 = stoi(W.instText.substr(0, W.instText.find("\t")));
-			W.instMachineCode = W.funct << 25;
-			W.instMachineCode |= W.rs2 << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-		else if (temp == "slt") {
-			W.opcode = 51;
-			W.shamt = 2;
-			W.funct = 0;
-			W.instText.erase(0, 4);
-			W.rd = stoi(W.instText.substr(1, W.instText.find(",") - 1));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs1 = stoi(W.instText.substr(0, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs2 = stoi(W.instText.substr(0, W.instText.find("\t")));
-
-			W.instMachineCode = W.funct << 25;
-			W.instMachineCode |= W.rs2 << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-		else if (temp == "xor") {
-			W.opcode = 51;
-			W.shamt = 4;
-			W.funct = 0;
-			W.instText.erase(0, 4);
-			W.rd = stoi(W.instText.substr(1, W.instText.find(",") - 1));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs1 = stoi(W.instText.substr(0, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 2);
-			W.rs2 = stoi(W.instText.substr(0, W.instText.find("\t")));
-
-			W.instMachineCode = W.funct << 25;
-			W.instMachineCode |= W.rs2 << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-		else if (temp == "addi") {     //I format
-			W.opcode = 0x8;
-			W.shamt = 0;
-			W.instText.erase(0, W.instText.find("x"));
-			W.rd = stoi(W.instText.substr(1, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 1);
-			W.rs1 = stoi(W.instText.substr(1, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 1);
-			W.I_imm = stoi(W.instText);
-			cout << "Assembler rd = " << W.rd << endl;
-			W.instMachineCode = W.I_imm << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-		else if (temp == "lw")
-		{
-			W.opcode = 3;
-			W.shamt = 2;
-			W.instText.erase(0, W.instText.find("x"));
-			W.rd = stoi(W.instText.substr(1, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 1);
-			W.I_imm = stoi(W.instText.substr(0, W.instText.find("(")));
-			W.instText.erase(0, W.instText.find("(") + 1);
-			W.rs1 = stoi(W.instText.substr(1, W.instText.find(")") - 1));
-
-			W.instMachineCode = W.I_imm << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-		else if (temp == "sw")
-		{
-			W.opcode = 35;
-			W.shamt = 2;
-			W.instText.erase(0, W.instText.find("x"));
-			W.rs2 = stoi(W.instText.substr(1, W.instText.find(",")));
-			W.instText.erase(0, W.instText.find(",") + 1);
-			W.S_imm = stoi(W.instText.substr(0, W.instText.find("(")));
-			W.rd = W.S_imm & 0b00000000000000000000000000011111;
-			W.funct = W.S_imm & 0b00000000000000000000111111100000;
-			W.instText.erase(0, W.instText.find("(") + 1);
-			W.rs1 = stoi(W.instText.substr(1, W.instText.find(")") - 1));
-
-			W.instMachineCode = W.funct << 25;
-			W.instMachineCode |= W.rs2 << 20;
-			W.instMachineCode |= W.rs1 << 15;
-			W.instMachineCode |= W.shamt << 12;
-			W.instMachineCode |= W.rd << 7;
-			W.instMachineCode |= W.opcode;
-		}
-
-	}
-}
-/*struct contentsofbuffer
-{
-vector <uint32_t> currentdata;
-vector <uint32_t> nextdata;
-bool reset, enable;
-};
-struct buffers
-{
-vector <uint32_t> in;
-vector <uint32_t> out;
-contentsofbuffer buffer;
-};
-buffers b1;
-*/
-
 
 void Registersreset()                              //initialize all registers to 0
 {
@@ -223,28 +95,6 @@ void RegisterFile(instWord &A)    //Read and Write from registers
 	}
 }
 
-
-/*void instructionmemoryinitialize(uint32_t ad, uint32_t ins)
-{
-instructionmemory addedinstruction;
-addedinstruction.address = ad;          //adding the address of the instruction
-addedinstruction.instr= ins;        //adding the instruction itself
-instr.push_back(addedinstruction);
-}
-uint32_t returninstruction(uint32_t ad)
-{
-
-for (int i = 0; i < instr.size(); i++)
-{
-if (instr[i].address == ad)
-{
-instruction = instr[i].instr;
-break;
-}
-}
-return 0;
-}
-*/
 void ALU(instWord &A)
 {
 	int aluresult = 0;
@@ -268,10 +118,7 @@ void ALU(instWord &A)
 		}
 
 	}
-	
 	else {
-		
-
 		switch (A.alucontrol)
 		{
 		case 1: A.alures = A.s1data + A.s2data; break;                 //ADD
@@ -289,9 +136,7 @@ void ALU(instWord &A)
 		{
 			A.zeroflag = 1;         //zeroflag is 1 when output is 0
 		}
-
 	}
-
 }
 void datamemoryreset()                   //initialize all the values in the memory to 0
 {
@@ -300,8 +145,6 @@ void datamemoryreset()                   //initialize all the values in the memo
 		memory[i] = 0;
 	}
 }
-
-
 void datamemory(instWord &A)             //Read and Write in memory, memory size is 32
 {
 	uint32_t datamemresult = 0;
@@ -346,6 +189,7 @@ void checkpc(uint32_t add, uint32_t target, instWord A)         //checks if pc e
 
 
 }
+vector <instWord> ROM;
 void updatestate(uint32_t pc, uint32_t targetadd, bool currentstate, instWord A)   //updates the decision of the predictor based on the current state
 { //if current state is 1: branch taken, else not taken
 
@@ -457,42 +301,21 @@ void  control_unit(instWord & A)
 	}
 
 }
-bool stall(uint32_t rs1_ex, uint32_t rs2_ex, uint32_t rs2_df, bool memtoreg_df, uint32_t rs2_ds, bool memtoreg_ds)   //gets the decision whether to stall or continue
+bool stall()   //gets the decision whether to stall or continue
 {
-	if (memtoreg_df) {
-		if (rs1_ex == rs2_df || rs2_ex == rs2_df)
-			if (rs2_df != 0)
-				return true;
-	}
-	if (memtoreg_ds) {
-		if (rs1_ex == rs2_ds || rs2_ex == rs2_ds)
-			if (rs2_ds != 0)
-				return true;
-	}
 
-	return false;
+    return 0;
 }
-//foward EX: 0 DF:1 DS:2 TCmem:3 TCalu:4
-int fowardingunit(uint32_t rs_exec, uint32_t rd_df, bool reg_we_DF, uint32_t rd_DS, bool reg_we_DS, uint32_t rd_TC, bool reg_we_TC, uint32_t rt_TC, bool mem_to_reg_TC)
+
+bool fowardingunit(instWord &W)
 {
+    if ((W.rd == ROM[W.pc+1].rs1) || (W.rd == ROM[W.pc+1].rs2)){
+        return true;
+    }
+    
+    
 
-	if (rs_exec == 0)
-		return 0;   //EX
-
-	if (reg_we_DF && rs_exec == rd_df)
-		return 1;   //DF
-
-	if (reg_we_DS && rs_exec == rd_DS)
-		return 2;  //DS
-
-	if (reg_we_TC && mem_to_reg_TC && rs_exec == rt_TC)
-		return 3;  //TCmem
-
-	if (reg_we_TC && rs_exec == rd_TC)
-		return 4;  //TCalu
-
-	return 0;
-
+    return 0;
 }
 void printRegs() {
 	cout << "REGS\n";
@@ -536,33 +359,76 @@ void Jump(instWord &W) {
 	//W.pc
 	}
 }
+void fetch(instWord &W){
+    
+    
+    
+    
+}
 
-int main(int argc, char *argv[])
-{
-	init();
+void next(){
+    int x = 0;
+    while (1){
+        cout << "X \t";
+        cin >> x;
+    }
+}
 
-    regs[2] = 3;
-    regs[3] = 2;
-	instWord W;
-    W.instText = "addi x1, x2, 3";
-	
+
+
+
+void IF(instWord &W){cout << "IF:" << W.instMachineCode << "\t"; }     // –first half of fetching of instruction; PC selection happens here as well as initiation of instruction cache access
+void IS(instWord W) {cout << "IS:" << W.instMachineCode << "\t"; }    // –second half of access to instruction cache.
+void RF (instWord W) {cout << "RF:" << W.instMachineCode << "\t"; }  // –instruction decode and register fetch, hazard checking and also instruction cache hit detection.
+void EX(instWord W) {cout << "EX:" << W.instMachineCode << "\t" ;}    //–execution, which includes effective address calculation, ALU operation, and branch target computation and condition evaluation. –
+void DF(instWord W){cout << "DF:" << W.instMachineCode << "\t" ;}    //–data fetch, first half of access to data cache.
+void DS (instWord W)  {cout << "DS:" << W.instMachineCode << "\t"; }    //–second half of access to data cache. –
+void TC (instWord W) {cout << "TC:" << W.instMachineCode << "\t" ;}   //–tag check, determine whether the data cache access hit. –
+void WB (instWord W){cout << "WB:" << W.instMachineCode << "\t" ;}  //–write back for loads and register-register operations.
+
+
+
+int main(int argc, char *argv[]){
+    
+    vector <instWord> W;
+    instWord testVariable;
+    for (int i = 0; i < 7; i++) W.push_back(testVariable);
+    for (int i = 0; i < 10; i++){ testVariable.instMachineCode = i+1; W.push_back(testVariable);}
+
+    int j = 0;
+    while (W.size()-8 != 0){
+        IF(W[7]);
+        IS(W[6]);
+        RF(W[5]);
+        EX(W[4]);
+        DF(W[3]);
+        DS(W[2]);
+        TC(W[1]);
+        WB(W[0]);
+        cout << endl;
+        for (int i = 0; i <= j; i++) cout << "\t\t";
+        j++;
+        W.erase(W.begin());
+        W.shrink_to_fit();
+
+        
+    }
+    cout << endl;
+
+
+    /*
     parseb(W);
-		
-	//ROM
 	decoder(W);
     RegisterFile(W);
 	control_unit(W);
 	Jump(W);
-	
 	signExtend(W);
 	ALU(W);
 	datamemory(W);
 	RegisterFile(W);
-	
-
-	printRegs();
-
-	//return 0;
+	printRegs();*/
+    
+    return 0;
 
 
 }
