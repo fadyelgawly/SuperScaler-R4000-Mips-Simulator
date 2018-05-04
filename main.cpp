@@ -27,10 +27,43 @@ struct instWord
 	int zeroflag, alures, datamemoryresult;
 	uint32_t s1data, s2data;
 	vector <BranchPredictor> branch;
-	bool regwrite, ALUSrc, memtoreg, regdst, Branch, memorywrite, jump, Branchequal;
+	bool regwrite = 0,
+    ALUSrc = 0,
+    memtoreg = 0,
+    regdst = 0,
+    Branch = 0,
+    memorywrite = 0,
+    jump = 0,
+    Branchequal=0;
 
 };
-
+void parseb(instWord &W) {
+    
+    string temp = W.instText.substr(0, W.instText.find("\t"));
+    
+    
+    if (temp != "main:\r") {
+        if (temp == "add") {            //R Type
+            W.opcode = 0x0;
+            W.shamt = 0;
+            W.funct = 0x0;
+            W.instText.erase(0, 4);
+            W.rd = stoi(W.instText.substr(1, W.instText.find(",") - 1));
+            W.instText.erase(0, W.instText.find(",") + 2);
+            W.rs1 = stoi(W.instText.substr(0, W.instText.find(",")));
+            W.instText.erase(0, W.instText.find(",") + 2);
+            W.rs2 = stoi(W.instText.substr(0, W.instText.find("\t")));
+            
+            
+            W.instMachineCode = W.opcode << 26;
+            W.instMachineCode |= W.rs2 << 21;
+            W.instMachineCode |= W.rs1 << 16;
+            W.instMachineCode |= W.rd << 11;
+            W.instMachineCode |= W.shamt << 6;
+            W.instMachineCode |= W.funct;
+        }
+    }
+}
 void parse(instWord &W) {
 
 	string temp = W.instText.substr(0, W.instText.find("\t"));
@@ -509,15 +542,19 @@ int main(int argc, char *argv[])
 {
 	init();
 
-
+    regs[2] = 3;
+    regs[3] = 2;
 	instWord W;
+    W.instText = "add\t 1, 2, 3";
 	
+    parseb(W);
 		
 	//ROM
 	decoder(W);
+    RegisterFile(W);
 	control_unit(W);
 	Jump(W);
-	RegisterFile(W);
+	
 	signExtend(W);
 	ALU(W);
 	datamemory(W);
@@ -527,6 +564,6 @@ int main(int argc, char *argv[])
 	printRegs();
 
 	//return 0;
-	system("pause");
+
 
 }
