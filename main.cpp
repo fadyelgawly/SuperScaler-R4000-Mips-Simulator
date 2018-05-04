@@ -34,26 +34,24 @@ struct instWord
     Branch = 0,
     memorywrite = 0,
     jump = 0,
-    Branchequal=0;
+    Branchequal= 0;
 
 };
 void parseb(instWord &W) {
     
     string temp = W.instText.substr(0, W.instText.find("\t"));
-    
-    
+
     if (temp != "main:\r") {
         if (temp == "add") {            //R Type
             W.opcode = 0x0;
             W.shamt = 0;
             W.funct = 0x0;
             W.instText.erase(0, 4);
-            W.rd = stoi(W.instText.substr(1, W.instText.find(",") - 1));
+            W.rd = stoi(W.instText.substr(2, W.instText.find(",") - 1));
             W.instText.erase(0, W.instText.find(",") + 2);
-            W.rs1 = stoi(W.instText.substr(0, W.instText.find(",")));
+            W.rs1 = stoi(W.instText.substr(1, W.instText.find(",")));
             W.instText.erase(0, W.instText.find(",") + 2);
-            W.rs2 = stoi(W.instText.substr(0, W.instText.find("\t")));
-            
+            W.rs2 = stoi(W.instText.substr(1, W.instText.find("\t")));
             
             W.instMachineCode = W.opcode << 26;
             W.instMachineCode |= W.rs2 << 21;
@@ -62,6 +60,7 @@ void parseb(instWord &W) {
             W.instMachineCode |= W.shamt << 6;
             W.instMachineCode |= W.funct;
         }
+       
     }
 }
 void parse(instWord &W) {
@@ -212,7 +211,7 @@ void RegisterFile(instWord &A)    //Read and Write from registers
 		//Write
 	}
 	else
-		if ((A.regwrite) && (A.rd<16) && (A.opcode == 0x20))
+		if ((A.regwrite) && (A.rd<16) && ((A.opcode == 0x20)|| (A.opcode == 0x0) ))
 		{
 			regs[A.rd] = A.alures;
 		}
@@ -409,7 +408,7 @@ void decoder(instWord & instruction)
 
 
 }
-void  control_unit(instWord A)
+void  control_unit(instWord & A)
 {
 	int alucontrol = 0;
 	switch (A.opcode)
@@ -545,7 +544,7 @@ int main(int argc, char *argv[])
     regs[2] = 3;
     regs[3] = 2;
 	instWord W;
-    W.instText = "add\t 1, 2, 3";
+    W.instText = "addi x1, x2, 3";
 	
     parseb(W);
 		
