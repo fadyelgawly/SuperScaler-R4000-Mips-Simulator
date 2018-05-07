@@ -5,13 +5,7 @@
 #include <fstream>
 using namespace std;
 
-uint32_t    regs[15],
-memory[32],
-clk;
-int pc;
-
-//bool regwrite, regdst, ALUSrc, Branch, memorywrite, memtoreg, jump, Branchequal;
-
+uint32_t    regs[15], memory[32];
 struct BranchPredictor
 {
     uint32_t pc;
@@ -39,6 +33,167 @@ struct instWord
     Branchequal= 0;
     
 };
+void parseb(instWord &W);
+void Registersreset();                              //initialize all registers to 0
+void RegisterFile(instWord &A);
+void ALU(instWord &A);
+void datamemoryreset()    ;
+void datamemory(instWord &A);
+void checkpc(uint32_t add, uint32_t target, instWord A);
+vector <instWord> ROM;
+void updatestate(uint32_t pc, uint32_t targetadd, bool currentstate, instWord A);
+int get_state(uint32_t address, instWord A);
+uint32_t get_target_address(uint32_t pc1, instWord A);
+
+void decoder(instWord & instruction);
+void  control_unit(instWord & A);
+bool fowardingunit(instWord &W)
+{
+    if ((W.rd == ROM[W.pc+1].rs1) || (W.rd == ROM[W.pc+1].rs2)){
+        return true;
+    }
+    
+    
+    
+    return 0;
+}
+void printRegs();
+void signExtend(instWord & W) {if (W.I_imm >> 15) W.I_imm += 0xFFFF0000;}
+
+
+void IF(instWord &W){
+    cout << "IF:" << W.instMachineCode << "\t";
+    decoder(W);
+}     // –first half of fetching of instruction; PC selection happens here as well as initiation of instruction cache access
+void IS(instWord W) {
+    cout << "IS:" << W.instMachineCode << "\t";
+    // Branch predictor
+}    // –second half of access to instruction cache.
+void RF (instWord W) {
+    cout << "RF:" << W.instMachineCode << "\t";
+    RegisterFile(W);
+}  // –instruction decode and register fetch, hazard checking and also instruction cache hit detection.
+void EX(instWord W) {
+    cout << "EX:" << W.instMachineCode << "\t" ;
+    ALU(W);
+}    //–execution, which includes effective address calculation, ALU operation, and branch target computation and condition evaluation. –
+void DF(instWord W){cout << "DF:" << W.instMachineCode << "\t" ;
+    datamemory(W);
+}    //–data fetch, first half of access to data cache.
+void DS (instWord W)  {cout << "DS:" << W.instMachineCode << "\t"; }    //–second half of access to data cache. –
+void TC (instWord W) {cout << "TC:" << W.instMachineCode << "\t" ;}   //–tag check, determine whether the data cache access hit. –
+void WB (instWord W){
+    cout << "WB:" << W.instMachineCode << "\t" ;
+    RegisterFile(W);
+}  //–write back for loads and register-register operations.
+
+bool stall(vector <instWord> W)   //gets the decision whether to stall or continue
+{
+    if (W[5].memtoreg)
+    {
+        if (W[5].rs2 != 0)
+        {
+            if ((W[4].rs1 == W[5].rs2) || (W[4].rs2 == W[5].rs2))
+            {
+                return true;
+            }
+        }
+    }
+    
+    if (W[6].memtoreg)
+    {
+        if (W[6].rs2 != 0)
+        {
+            if ((W[4].rs1 == W[6].rs2) || (W[4].rs2 == W[6].rs2))
+                return true;
+        }
+    }
+    return false;
+}
+
+
+int main(int argc, char *argv[]){
+    Registersreset();
+    vector <instWord> W;                //ROM
+    instWord testVariable;              //Variable to fill the rom
+    for (int i = 0; i < 7; i++) W.push_back(testVariable);  //INIT ROM WITH 8 EMPTY Instructions, Simulates initializing of buffers
+    memory[0x0] = 0x1;                  //PLEASE Change those
+    regs[0x1] = 0x2;
+    testVariable.instMachineCode = 0x8C220000;          //TAKEN FROM SLIDES
+    W.push_back(testVariable);                          //SHOULD CAUSE STALLING
+    testVariable.instMachineCode = 0x822824;
+    W.push_back(testVariable);
+    testVariable.instMachineCode = 0x1023025;
+    W.push_back(testVariable);
+    testVariable.instMachineCode = 0;
+    for (int i = 0; i < 7; i++) W.push_back(testVariable);  //Should
+    
+    int j = 0;
+    bool Stall = false;
+    
+    while (W.size()-8 != 0){
+        //IF STAGE
+        do {
+            IF(W[7]);
+            Stall = stall(W);
+        }  while (Stall);
+        
+        //IS STAGE
+        do {
+            IS(W[6]);
+            Stall = stall(W);
+        }
+        while (Stall);
+        do {
+            RF(W[5]);
+            Stall = stall(W);
+        }
+        while (Stall);
+        do {
+            EX(W[4]);
+            Stall = stall(W);
+        }
+        while (Stall);
+        
+        do {
+            DF(W[3]);
+            Stall = stall(W);
+        }
+        
+        while (Stall);
+        do {
+            DS(W[2]);
+            Stall = stall(W);
+        }
+        
+        while (Stall);
+        
+        do {
+            TC(W[1]);
+            Stall = stall(W);
+        }
+        
+        while (Stall);
+        
+        do {
+            WB(W[0]);
+            Stall = stall(W);
+        } while (Stall);
+        cout << endl;
+        for (int i = 0; i <= j; i++) cout << "\t\t";
+        j++;
+        W.erase(W.begin());
+        W.shrink_to_fit();
+        
+        
+    }
+    cout << endl;
+    
+    printRegs();
+    return 0;
+    
+}
+
 void parseb(instWord &W) {
     
     string temp = W.instText.substr(0, W.instText.find("\t"));
@@ -65,15 +220,12 @@ void parseb(instWord &W) {
         
     }
 }
-
 void Registersreset()                              //initialize all registers to 0
 {
     for (int i = 0; i < 15; i++)
-    {
         regs[i] = 0;
-    }
+    
 }
-
 void RegisterFile(instWord &A)    //Read and Write from registers
 {
     
@@ -162,9 +314,6 @@ void datamemory(instWord &A)             //Read and Write in memory, memory size
         }
     
 }
-
-
-
 void checkpc(uint32_t add, uint32_t target, instWord A)         //checks if pc exsits in the Branch Predictor Table
 {
     bool flag = false;
@@ -174,10 +323,8 @@ void checkpc(uint32_t add, uint32_t target, instWord A)         //checks if pc e
         {
             if (A.branch[i].pc == add)
                 flag = true;
-            
         }
     }
-    
     if (!(flag))            //if pc doesn't exist add it
     {
         BranchPredictor addedpc;
@@ -186,10 +333,7 @@ void checkpc(uint32_t add, uint32_t target, instWord A)         //checks if pc e
         addedpc.state = 0;          //State is strongly Not Taken
         A.branch.push_back(addedpc);           //  add the pc to the branch predictor
     }
-    
-    
 }
-vector <instWord> ROM;
 void updatestate(uint32_t pc, uint32_t targetadd, bool currentstate, instWord A)   //updates the decision of the predictor based on the current state
 { //if current state is 1: branch taken, else not taken
     
@@ -215,6 +359,7 @@ void updatestate(uint32_t pc, uint32_t targetadd, bool currentstate, instWord A)
         }
     }
 }
+
 int get_state(uint32_t address, instWord A)      //returns the state of an address
 {
     for (int i = 0; i < A.branch.size(); i++)
@@ -226,18 +371,6 @@ int get_state(uint32_t address, instWord A)      //returns the state of an addre
     }
     return 0;      //not found so it will have a state of Strongly NT i.e 0
 }
-uint32_t get_target_address(uint32_t pc1, instWord A)
-{
-    for (int i = 0; i < A.branch.size(); i++)
-    {
-        if (pc1 == A.branch[i].pc)
-        {
-            return A.branch[i].targetaddress;
-        }
-    }
-    return pc1;  //not found so target address is the address itself
-}
-
 void decoder(instWord & instruction)
 {
     instruction.I_imm = (instruction.instMachineCode & 0xFFFF);
@@ -251,6 +384,17 @@ void decoder(instWord & instruction)
     //    instruction.J_imm = (instruction.instMachineCode & 0xFFFF); //fjjkfl
     
     
+}
+uint32_t get_target_address(uint32_t pc1, instWord A)
+{
+    for (int i = 0; i < A.branch.size(); i++)
+    {
+        if (pc1 == A.branch[i].pc)
+        {
+            return A.branch[i].targetaddress;
+        }
+    }
+    return pc1;  //not found so target address is the address itself
 }
 void  control_unit(instWord & A)
 {
@@ -301,22 +445,6 @@ void  control_unit(instWord & A)
     }
     
 }
-bool stall()   //gets the decision whether to stall or continue
-{
-    
-    return 0;
-}
-
-bool fowardingunit(instWord &W)
-{
-    if ((W.rd == ROM[W.pc+1].rs1) || (W.rd == ROM[W.pc+1].rs2)){
-        return true;
-    }
-    
-    
-    
-    return 0;
-}
 void printRegs() {
     cout << "REGS\n";
     for (int i = 0; i<15; i++)
@@ -329,141 +457,3 @@ void printRegs() {
         cout << "x" << i << "\t: " << memory[i] << endl;
     }
 }
-
-void nextclk(instWord W[], int i) {
-    /*
-     decoder(W[clk] );
-     RegisterFile( ); W[clk-1]       //Zeyad
-     ALU(); W[clk-2]
-     DataMemory() W[clk-3] */
-    clk++;
-}
-
-void signExtend(instWord & W) {
-    if (W.I_imm >> 15)
-        W.I_imm += 0xFFFF0000;
-}
-
-void init() {
-    
-    clk = 0;
-    Registersreset();
-    
-    
-}
-
-void Jump(instWord &W) {
-    if (W.jump)
-    {
-        
-        //W.pc
-    }
-}
-void fetch(instWord &W){
-    
-    
-    
-    
-}
-
-void next(){
-    int x = 0;
-    while (1){
-        cout << "X \t";
-        cin >> x;
-    }
-}
-
-
-
-
-void IF(instWord &W){
-    cout << "IF:" << W.instMachineCode << "\t";
-    decoder(W);
-}     // –first half of fetching of instruction; PC selection happens here as well as initiation of instruction cache access
-void IS(instWord W) {
-    cout << "IS:" << W.instMachineCode << "\t";
-    // Branch predictor
-}    // –second half of access to instruction cache.
-void RF (instWord W) {
-    cout << "RF:" << W.instMachineCode << "\t";
-    RegisterFile(W);
-}  // –instruction decode and register fetch, hazard checking and also instruction cache hit detection.
-void EX(instWord W) {
-    cout << "EX:" << W.instMachineCode << "\t" ;
-    ALU(W);
-}    //–execution, which includes effective address calculation, ALU operation, and branch target computation and condition evaluation. –
-void DF(instWord W){cout << "DF:" << W.instMachineCode << "\t" ;
-    datamemory(W);
-}    //–data fetch, first half of access to data cache.
-void DS (instWord W)  {cout << "DS:" << W.instMachineCode << "\t"; }    //–second half of access to data cache. –
-void TC (instWord W) {cout << "TC:" << W.instMachineCode << "\t" ;}   //–tag check, determine whether the data cache access hit. –
-void WB (instWord W){
-    cout << "WB:" << W.instMachineCode << "\t" ;
-    RegisterFile(W);
-}  //–write back for loads and register-register operations.
-
-
-
-int main(int argc, char *argv[]){
-    //* DO NOT TOUCH
-    vector <instWord> W; //*
-    instWord testVariable; //*
-    for (int i = 0; i < 7; i++) W.push_back(testVariable); //*
-    for (int i = 0; i < 17; i++){ testVariable.instMachineCode = i+1; W.push_back(testVariable);}
-    
-    int j = 0;
-    bool Stall = false;
-    while (W.size()-8 != 0){
-        do {
-            IF(W[7]);
-        }  while (Stall);
-        do {
-            IS(W[6]);
-            
-        }
-        while (Stall);
-        do {
-            RF(W[5]);
-        }
-        while (Stall);
-        do {
-            EX(W[4]);
-        }
-        while (Stall);
-        
-        do {
-            DF(W[3]);}
-        
-        while (Stall);
-        do {
-            DS(W[2]);}
-        
-        while (Stall);
-        
-        do {
-            TC(W[1]);}
-        
-        while (Stall);
-        
-        do {
-            WB(W[0]);}
-        while (Stall);
-        cout << endl;
-        for (int i = 0; i <= j; i++) cout << "\t\t";
-        j++;
-        W.erase(W.begin());
-        W.shrink_to_fit();
-        
-        
-    }
-    cout << endl;
-    
-    
-
-    printRegs();
-    return 0;
-    
-    
-}
-
