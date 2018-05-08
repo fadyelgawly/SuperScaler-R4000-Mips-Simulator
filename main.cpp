@@ -72,6 +72,7 @@ void IS(instWord W) {
 void RF (instWord W) {
     cout << "RF:" << W.instMachineCode << "\t";
     RegisterFile(W);
+    control_unit(W);
 }  // –instruction decode and register fetch, hazard checking and also instruction cache hit detection.
 void EX(instWord W) {
     cout << "EX:" << W.instMachineCode << "\t" ;
@@ -122,7 +123,7 @@ int main(int argc, char *argv[]){
     testVariable.instMachineCode = 0x8C220000;          //TAKEN FROM SLIDES
     W.push_back(testVariable);                          //SHOULD CAUSE STALLING
     testVariable.instMachineCode = 0x822824;
-    W.push_back(testVariable);
+    W.push_back(testVariable);        
     testVariable.instMachineCode = 0x1023025;
     W.push_back(testVariable);
     testVariable.instMachineCode = 0;
