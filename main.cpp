@@ -62,29 +62,31 @@ void signExtend(instWord & W) {if (W.I_imm >> 15) W.I_imm += 0xFFFF0000;}
 
 
 void IF(instWord &W){
-    cout << "IF:" << W.instMachineCode << "\t";
+    cout << "IF:" << W.instText << "\t";
     decoder(W);
+    
 }     // –first half of fetching of instruction; PC selection happens here as well as initiation of instruction cache access
-void IS(instWord W) {
-    cout << "IS:" << W.instMachineCode << "\t";
+void IS(instWord &W) {
+    cout << "IS:" << W.instText << "\t";
+    signExtend(W);
     // Branch predictor
 }    // –second half of access to instruction cache.
-void RF (instWord W) {
-    cout << "RF:" << W.instMachineCode << "\t";
+void RF (instWord &W) {
+    cout << "RF:" << W.instText << "\t";
     RegisterFile(W);
     control_unit(W);
 }  // –instruction decode and register fetch, hazard checking and also instruction cache hit detection.
-void EX(instWord W) {
-    cout << "EX:" << W.instMachineCode << "\t" ;
+void EX(instWord &W) {
+    cout << "EX:" << W.instText << "\t" ;
     ALU(W);
 }    //–execution, which includes effective address calculation, ALU operation, and branch target computation and condition evaluation. –
-void DF(instWord W){cout << "DF:" << W.instMachineCode << "\t" ;
+void DF(instWord &W){cout << "DF:" << W.instText << "\t" ;
     datamemory(W);
 }    //–data fetch, first half of access to data cache.
-void DS (instWord W)  {cout << "DS:" << W.instMachineCode << "\t"; }    //–second half of access to data cache. –
-void TC (instWord W) {cout << "TC:" << W.instMachineCode << "\t" ;}   //–tag check, determine whether the data cache access hit. –
-void WB (instWord W){
-    cout << "WB:" << W.instMachineCode << "\t" ;
+void DS (instWord &W)  {cout << "DS:" << W.instText << "\t"; }    //–second half of access to data cache. –
+void TC (instWord &W) {cout << "TC:" << W.instText << "\t" ;}   //–tag check, determine whether the data cache access hit. –
+void WB (instWord &W){
+    cout << "WB:" << W.instText << "\t" ;
     RegisterFile(W);
 }  //–write back for loads and register-register operations.
 
@@ -96,6 +98,9 @@ bool stall(vector <instWord> W)   //gets the decision whether to stall or contin
         {
             if ((W[4].rs1 == W[5].rs2) || (W[4].rs2 == W[5].rs2))
             {
+                cout << "STALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALLSTALL";
+                
+                
                 return true;
             }
         }
@@ -117,22 +122,24 @@ int main(int argc, char *argv[]){
     Registersreset();
     vector <instWord> W;                //ROM
     instWord testVariable;              //Variable to fill the rom
+    testVariable.instText = "   ";
     for (int i = 0; i < 7; i++) W.push_back(testVariable);  //INIT ROM WITH 8 EMPTY Instructions, Simulates initializing of buffers
-    memory[0x0] = 0x1;                  //PLEASE Change those
-    regs[0x1] = 0x2;
-    testVariable.instMachineCode = 0x8C220000;          //TAKEN FROM SLIDES
+
+    testVariable.instMachineCode = 0x20020001;  testVariable.instText = "Addi";        //TAKEN FROM SLIDES
     W.push_back(testVariable);                          //SHOULD CAUSE STALLING
-    testVariable.instMachineCode = 0x822824;
-    W.push_back(testVariable);        
-    testVariable.instMachineCode = 0x1023025;
+    testVariable.instMachineCode = 0xac020000; testVariable.instText = "Sw";
     W.push_back(testVariable);
-    testVariable.instMachineCode = 0;
+    testVariable.instMachineCode = 0x8c030000; testVariable.instText = "Lw";
+    W.push_back(testVariable);
+    testVariable.instMachineCode = 0x631820; testVariable.instText = "Add";
+    W.push_back(testVariable);
+    testVariable.instMachineCode = 0;testVariable.instText = "   ";
     for (int i = 0; i < 7; i++) W.push_back(testVariable);  //Should
     
     int j = 0;
     bool Stall = false;
     
-    while (W.size()-8 != 0){
+    while (W.size()-7 != 0){
         //IF STAGE
         do {
             IF(W[7]);
@@ -399,7 +406,6 @@ uint32_t get_target_address(uint32_t pc1, instWord A)
 }
 void  control_unit(instWord & A)
 {
-    int alucontrol = 0;
     switch (A.opcode)
     {
         case 0: {                                                                  //R-type
@@ -416,8 +422,9 @@ void  control_unit(instWord & A)
         }
         case 8:     // I-type--ADDI
         {
-            alucontrol = 1;        //ADDI
+                  //ADDI
             A.regwrite = A.ALUSrc = true;
+            A.alucontrol = 1;// <-
             A.regdst = A.Branch = A.memorywrite = A.memtoreg = A.jump = A.Branchequal = false; break;
         }
         case 35:
